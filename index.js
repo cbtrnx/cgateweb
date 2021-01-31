@@ -349,6 +349,15 @@ event.on('data', function(data) {
           break;
         default:
       }
+    } else {    
+        // add capbility to recieve measuerment data:
+        if(parts[0] == "measurement") {
+          address = parts[2].split("/");
+          if(parts[1] == "data") {
+              if (logging == true) {console.log('C-Bus status received: '+address[3] +'/'+address[4]+'/'+address[5]+'/'+address[6]+' '+parts[3]);}
+              queue.publish('cbus/read/'+address[3]+'/'+address[4]+'/'+address[5]+'/'+address[6]+'/level' , parts[3],options, function() {});
+          } 
+        }
     }
 
 });
