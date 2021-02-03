@@ -126,77 +126,107 @@ client.on('connect', function() { // When connected
     // when a message arrives, do something with it
     client.on('message', function(topic, message, packet) {
       if (logging == true) {console.log('Message received on ' + topic + ' : ' + message);}
-
+		
+	  //parts example
+	  //cbus/write/#1/#2/#3/ramp
+	  //cbus/write/#1/#2/#3/switch
+	  //cbus/write/#1/#2//getall
+	  //cbus/write/#1///gettree
+	  //cbus/write/#1/#2/#3/#4/data (MEASUREMENT FUNCTION, message format: num,multiplier,units)
       parts = topic.split("/");
-      if (parts.length > 5)
+	  
+	  if (parts.length > 6){
+		switch(parts[6].toLowerCase()){
+			// write measurement data
+			case "data":
+				var value = 0;
+				var multiplier = 0;
+				var units = 0; //default to $00 deg C
+				
+				var parameters = message.split(",");
+				value = parseInt(parameters[0])
+				if (parameters.length > 1) {multiplier = parseInt(parameters[1]);}
+				if (parameters.length > 2) {units = parseInt(parameters[2]);}
+				queue2.write('MEASUREMENT DATA '+'//'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'/'+parts[5]+' '+value+' '+multiplier+' '+units+'\n');
+				break;
+			default:
+		}
+	  } else if (parts.length > 5){
 
-      switch(parts[5].toLowerCase()) {
+		  switch(parts[5].toLowerCase()) {
 
-        // Get updates from all groups
-        case "gettree":
-          treenet = parts[2];
-          queue2.write('TREEXML '+parts[2]+'\n');
-          break;
+			// Get updates from all groups
+			case "gettree":
+			  treenet = parts[2];
+			  queue2.write('TREEXML '+parts[2]+'\n');
+			  break;
 
 
-        // Get updates from all groups
-        case "getall":
-          queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/* level\n');
-          break;
+			// Get updates from all groups
+			case "getall":
+			  queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/* level\n');
+			  break;
 
-        // On/Off control
-        case "switch":
+			// On/Off control
+			case "switch":
 
-          if(message == "ON") {queue2.write('ON //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n')};
-          if(message == "OFF") {queue2.write('OFF //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n')};
-          break;
+			  if(message == "ON") {queue2.write('ON //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n')};
+			  if(message == "OFF") {queue2.write('OFF //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n')};
+			  break;
 
-        // Ramp, increase/decrease, on/off control
-        case "ramp":
-          switch(message.toUpperCase()) {
-            case "INCREASE":
-              eventEmitter.on('level',function increaseLevel(address,level) {
-                if (address == parts[2]+'/'+parts[3]+'/'+parts[4]) {
-                  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+Math.min((level+26),255)+' '+'\n');
-                  eventEmitter.removeListener('level',increaseLevel);
-                }
-              });
-              queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' level\n');
+			// Ramp, increase/decrease, on/off control
+			case "ramp":
+			  switch(message.toUpperCase()) {
+				case "INCREASE":
+				  eventEmitter.on('level',function increaseLevel(address,level) {
+					if (address == parts[2]+'/'+parts[3]+'/'+parts[4]) {
+					  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+Math.min((level+26),255)+' '+'\n');
+					  eventEmitter.removeListener('level',increaseLevel);
+					}
+				  });
+				  queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' level\n');
 
-              break;
+				  break;
 
-            case "DECREASE":
-              eventEmitter.on('level',function decreaseLevel(address,level) {
-                if (address == parts[2]+'/'+parts[3]+'/'+parts[4]) {
-                  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+Math.max((level-26),0)+' '+'\n');
-                  eventEmitter.removeListener('level',decreaseLevel);
-                }
-              });
-              queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' level\n');
+				case "DECREASE":
+				  eventEmitter.on('level',function decreaseLevel(address,level) {
+					if (address == parts[2]+'/'+parts[3]+'/'+parts[4]) {
+					  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+Math.max((level-26),0)+' '+'\n');
+					  eventEmitter.removeListener('level',decreaseLevel);
+					}
+				  });
+				  queue2.write('GET //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' level\n');
 
-              break;
+				  break;
 
-            case "ON":
-              queue2.write('ON //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n');
-              break;
-            case "OFF":
-              queue2.write('OFF //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n');
-              break;
-            default:
-              var ramp = message.split(",");
-              var num = Math.round(parseInt(ramp[0])*255/100)
-              if (!isNaN(num) && num < 256) {
+				case "ON":
+				  queue2.write('ON //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n');
+				  break;
+				case "OFF":
+				  queue2.write('OFF //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'\n');
+				  break;
+				default:
+				  var ramp = message.split(",");
+				  var num = Math.round(parseInt(ramp[0])*255/100)
+				  if (!isNaN(num) && num < 256) {
 
-                if (ramp.length > 1) {
-                  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+num+' '+ramp[1]+'\n');
-                } else {
-                  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+num+'\n');
-                }
-              }
-          }
-          break;
-        default:
-      }
+					if (ramp.length > 1) {
+					  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+num+' '+ramp[1]+'\n');
+					} else {
+					  queue2.write('RAMP //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+' '+num+'\n');
+					}
+				  }
+			  }
+			  break;
+			  // Temp, set temperature on channel 0 of group, measurement application
+			case "temp":
+				//measurement data //MYHOME/254/228/1/0 'value' 'multiplier' 'units'
+				//fixed channel=0, fixed multiplier=10, fixed units=0 (deg C)
+				queue2.write('MEASUREMENT DATA //'+settings.cbusname+'/'+parts[2]+'/'+parts[3]+'/'+parts[4]+'/0 '+message+'10 0\n');
+				break;
+			default:
+		  }
+	  }
     });
   });
 
@@ -351,11 +381,14 @@ event.on('data', function(data) {
       }
     } else {    
         // add capbility to recieve measuerment data:
+		// example
+		// measurement data //KALARI/254/228/0/0 5042 0 38
         if(parts[0] == "measurement") {
           address = parts[2].split("/");
           if(parts[1] == "data") {
               if (logging == true) {console.log('C-Bus status received: '+address[3] +'/'+address[4]+'/'+address[5]+'/'+address[6]+' '+parts[3]);}
-              queue.publish('cbus/read/'+address[3]+'/'+address[4]+'/'+address[5]+'/'+address[6]+'/level' , parts[3],options, function() {});
+			  //publish on mqtt chennel cbus/read/254/228/0/0/data 		"5042,0,38" (data, multiplier, units)
+              queue.publish('cbus/read/'+address[3]+'/'+address[4]+'/'+address[5]+'/'+address[6]+'/data' , parts[3]+','+parts[4]+','+parts[5],options, function() {});
           } 
         }
     }
